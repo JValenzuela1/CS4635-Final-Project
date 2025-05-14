@@ -34,12 +34,12 @@ def parse_file(filepath):
             try:
                 num_points = int(line.split(":")[1].strip())
             except ValueError:
-                print(f"⚠️ Could not parse number of points in {filepath}")
+                print(f"Could not parse number of points in {filepath}")
                 num_points = 0
             break
 
     if num_points is None:
-        print(f"⚠️ 'Number of nondominated/efficient points' not found in {filepath}")
+        print(f"'Number of nondominated/efficient points' not found in {filepath}")
         num_points = 0
     
     # Extract Nondominated point set
@@ -55,7 +55,7 @@ def parse_file(filepath):
                 point = list(map(float, line.split()))
                 nondominated_points.append(point)
             except ValueError:
-                print(f"⚠️ Skipped malformed line in {filepath}: {line.strip()}")
+                print(f"Skipped malformed line in {filepath}: {line.strip()}")
     
     return num_points, nondominated_points
 
@@ -79,7 +79,7 @@ def analyze_results(results_dir):
                 "avg_solutions": num_points,
                 "nondominated_points": nondominated_points
             }
-    print(f"✅ Parsed {filename} → P={p_value}, Budget={budget}, Points={num_points}")
+    print(f"Parsed {filename} → P={p_value}, Budget={budget}, Points={num_points}")
     return summary_data
 
 # Calculate RMSE

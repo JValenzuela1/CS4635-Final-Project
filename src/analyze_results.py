@@ -1,166 +1,188 @@
 import os
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
-def parse_summary_file(file_path):
-    summary_data = {}
-
-    # Read the file
-    with open(file_path, 'r') as f:
-        lines = f.readlines()
-
-    # Extract relevant information from the file
-    current_section = None
-    for line in lines:
-        line = line.strip()
-
-        if line.startswith("Summary:"):
-            current_section = "summary"
-        elif line.startswith("Nondominated point set:"):
-            current_section = "nondominated"
-        elif line.startswith("Efficient point set:"):
-            current_section = "efficient"
-        elif line.startswith("Full database of objective values observed:"):
-            current_section = "objective_values"
-        elif line.startswith("Full database of evaluated design points:"):
-            current_section = "design_points"
-        
-        # Extract number of nondominated points
-        if current_section == "summary" and "Number of nondominated/efficient points:" in line:
-            num_points = int(line.split(":")[-1].strip())
-            summary_data['num_points'] = num_points
-
-        # Add logic here to extract more values like RMSE or discrepancy if needed
-        # For now, let's assume average solutions are part of the summary
-        if current_section == "summary" and "Total number of function evaluations:" in line:
-            total_evaluations = int(line.split(":")[-1].strip())
-            summary_data['total_evaluations'] = total_evaluations
-
-    return summary_data
-
+# Parse the filename to extract p_value and budget
 def parse_filename(filename):
-    # Extract p_value and budget from the filename
+    print(f"Parsing filename: {filename}")  # Debugging: print filename being parsed
     parts = filename.split('_')
     
-    # Debugging: print out the parts of the filename to understand the format
-    print(f"Parsing filename: {filename}")
-    print(f"Parts: {parts}")
-    
-    # Check if the filename follows the expected format
-    if len(parts) < 3:
-        print(f"Warning: Filename '{filename}' does not match the expected format. Skipping.")
-        return None, None  # Return None if the filename is not in the expected format
+    # Ensure the format is correct: samples_out_pX_YYYY.txt
+    if len(parts) < 4:
+        raise ValueError(f"Filename format is incorrect: {filename}")
     
     try:
-        p_value = parts[1][1:]  # Extract after 'p'
-        budget = parts[2].split('.')[0]  # Extract before '.txt'
-        return p_value, budget
-    except IndexError:
-        print(f"Error: Could not parse filename '{filename}'.")
-        return None, None  # Return None in case of parsing error
+        # Extract p_value (the number after 'p')
+        p_value = int(parts[2][1:])  # Extract the number after 'p', e.g., p2, p3, p4
+        # Extract budget (the number before '.txt')
+        budget = int(parts[3].split('.')[0])  # e.g., 1000, 1500, 2000 (before .txt)
+    except ValueError as e:
+        print(f"Error parsing filename {filename}: {e}")
+        raise
+    
+    return p_value, budget
 
+
+# Read the file and extract the necessary data
+def parse_file(filepath):
+    with open(filepath, 'r') as file:
+        lines = file.readlines()
+    
+    num_points = None
+    for line in lines:
+        if "Number of nondominated/efficient points" in line:
+            try:
+                num_points = int(line.split(":")[1].strip())
+            except ValueError:
+                print(f"⚠️ Could not parse number of points in {filepath}")
+                num_points = 0
+            break
+
+    if num_points is None:
+        print(f"⚠️ 'Number of nondominated/efficient points' not found in {filepath}")
+        num_points = 0
+    
+    # Extract Nondominated point set
+    nondominated_points = []
+    reading_points = False
+    for line in lines:
+        if "Nondominated point set" in line:
+            reading_points = True
+        elif reading_points and line.strip() == "":
+            break
+        elif reading_points:
+            try:
+                point = list(map(float, line.split()))
+                nondominated_points.append(point)
+            except ValueError:
+                print(f"⚠️ Skipped malformed line in {filepath}: {line.strip()}")
+    
+    return num_points, nondominated_points
+
+
+# Analyze the results in the directory
 def analyze_results(results_dir):
-    # Check and log the current working directory
-    print(f"Current working directory: {os.getcwd()}")
-
     summary_data = {}
-    valid_files_found = False  # Flag to track if any valid files were processed
 
-    # Verify that the specified results directory exists
-    if not os.path.isdir(results_dir):
-        print(f"Error: The directory {results_dir} does not exist.")
-        return summary_data  # Exit early if directory doesn't exist
-
-    print(f"Processing files in directory: {results_dir}")
-
-    # Loop over result files in the directory
     for filename in os.listdir(results_dir):
-        if filename.endswith(".txt"):
+        if filename.startswith("samples_out_p") and filename.endswith(".txt"):
+            filepath = os.path.join(results_dir, filename)
             p_value, budget = parse_filename(filename)
-            
-            # Skip files that couldn't be parsed
-            if p_value is None or budget is None:
-                print(f"Skipping file (invalid format): {filename}")
-                continue
-            
-            valid_files_found = True  # Found a valid file
-            file_path = os.path.join(results_dir, filename)
-            print(f"Processing file: {filename}")
+            num_points, nondominated_points = parse_file(filepath)
 
-            # Parse the file and get the summary data
-            file_data = parse_summary_file(file_path)
+            # If the p_value does not exist in the dictionary, initialize it
+            if p_value not in summary_data:
+                summary_data[p_value] = {}
 
-            # Store results in summary_data dictionary
-            key = f"p{p_value}_b{budget}"
-            summary_data[key] = file_data
-
-    # After processing, check if any valid files were found
-    if not valid_files_found:
-        print("No valid files found for processing.")
-
+            # Store the number of solutions
+            summary_data[p_value][budget] = {
+                "avg_solutions": num_points,
+                "nondominated_points": nondominated_points
+            }
+    print(f"✅ Parsed {filename} → P={p_value}, Budget={budget}, Points={num_points}")
     return summary_data
 
+# Calculate RMSE
+def calculate_rmse(actual, predicted):
+    return np.sqrt(np.mean((np.array(actual) - np.array(predicted)) ** 2))
 
+# Calculate Delaunay discrepancy
+def calculate_delaunay_discrepancy(points):
+    # For simplicity, we will just calculate the variance of the distances between points
+    if len(points) < 2:
+        return 0
+    distances = []
+    for i in range(len(points)):
+        for j in range(i + 1, len(points)):
+            distance = np.linalg.norm(np.array(points[i]) - np.array(points[j]))
+            distances.append(distance)
+    
+    return np.var(distances)
 
+# Generate and save graphs
 def generate_graphs(summary_data):
-    p_values = [2, 3, 4]
-    budgets = [1000, 1500, 2000]
-    
-    # Loop through p_values to process data
-    for p_value in p_values:
-        avg_solutions = []  # To store average solution counts for each p
-        rmse_values = []  # To store RMSE values
-        discrepancy_values = []  # To store discrepancy values
-        
+    output_dir = os.getcwd()
+
+    for p_value, data in summary_data.items():
+        budgets = [1000, 1500, 2000]
+        avg_solutions = [data.get(budget, {}).get("avg_solutions", 0) for budget in budgets]
+
+        # Combine all nondominated points across budgets to form the reference front
+        all_points = []
         for budget in budgets:
-            key = f"p{p_value}_b{budget}"
-            if key in summary_data:
-                avg_solutions.append(summary_data[key].get('num_points', 0))  # Using 'num_points' for now
-                # Add logic to get RMSE and discrepancy if required
-                rmse_values.append(0)  # Replace with actual logic for RMSE
-                discrepancy_values.append(0)  # Replace with actual logic for discrepancy
+            all_points.extend(data.get(budget, {}).get("nondominated_points", []))
+        all_points = np.array(all_points)
+
+        # Use the centroid of the union as reference point
+        if len(all_points) > 0:
+            reference_centroid = np.mean(all_points, axis=0)
+        else:
+            reference_centroid = None
+
+        # Compute RMSE values to the reference centroid
+        rmse_values = []
+        for budget in budgets:
+            current_points = data.get(budget, {}).get("nondominated_points", [])
+            if current_points and reference_centroid is not None:
+                curr_centroid = np.mean(current_points, axis=0)
+                rmse = calculate_rmse(curr_centroid, reference_centroid)
             else:
-                print(f"Warning: No data found for {key}.")
-        
-        # Debugging: Check if lists are populated
-        print(f"p={p_value}, avg_solutions={avg_solutions}, rmse_values={rmse_values}, discrepancy_values={discrepancy_values}")
-        
-        # Proceed with plotting only if lists are not empty
-        if avg_solutions:
-            plt.plot(budgets, avg_solutions, marker='o', color='b', label=f'P={p_value}')
-            plt.xlabel('Budget')
-            plt.ylabel('Average Number of Solutions')
-            plt.title(f'Average Solutions for P={p_value}')
-            plt.legend()
-            plt.savefig(f'avg_solutions_p{p_value}.png')
-            plt.clf()  # Clear the figure for the next plot
+                rmse = 0
+            rmse_values.append(rmse)
 
-        if rmse_values:
-            plt.plot(budgets, rmse_values, marker='o', color='r', label=f'P={p_value}')
-            plt.xlabel('Budget')
-            plt.ylabel('RMSE')
-            plt.title(f'RMSE for P={p_value}')
-            plt.legend()
-            plt.savefig(f'rmse_p{p_value}.png')
-            plt.clf()  # Clear the figure for the next plot
+        # Calculate Delaunay discrepancy for each budget
+        delaunay_values = [
+            calculate_delaunay_discrepancy(data.get(budget, {}).get("nondominated_points", []))
+            for budget in budgets
+        ]
 
-        if discrepancy_values:
-            plt.plot(budgets, discrepancy_values, marker='o', color='g', label=f'P={p_value}')
-            plt.xlabel('Budget')
-            plt.ylabel('Delaunay Discrepancy')
-            plt.title(f'Delaunay Discrepancy for P={p_value}')
-            plt.legend()
-            plt.savefig(f'discrepancy_p{p_value}.png')
-            plt.clf()  # Clear the figure for the next plot
+        # Plotting Average Solutions
+        plt.figure()
+        plt.plot(budgets, avg_solutions, marker='o', color='b', label=f'P={p_value}')
+        plt.title(f'Average Solutions for P={p_value}')
+        plt.xlabel('Budget')
+        plt.ylabel('Average Solutions')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(f"{output_dir}/avg_solutions_p{p_value}.png")
+        plt.close()
 
+        # Plotting RMSE
+        plt.figure()
+        plt.plot(budgets, rmse_values, marker='o', color='g', label=f'P={p_value}')
+        plt.title(f'RMSE to Combined Centroid for P={p_value}')
+        plt.xlabel('Budget')
+        plt.ylabel('RMSE')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(f"{output_dir}/rmse_p{p_value}.png")
+        plt.close()
+
+        # Plotting Delaunay Discrepancy
+        plt.figure()
+        plt.plot(budgets, delaunay_values, marker='o', color='r', label=f'P={p_value}')
+        plt.title(f'Delaunay Discrepancy for P={p_value}')
+        plt.xlabel('Budget')
+        plt.ylabel('Delaunay Discrepancy')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(f"{output_dir}/delaunay_p{p_value}.png")
+        plt.close()
+
+        # Saving tables to a text file
+        with open(f"{output_dir}/summary_table_p{p_value}.txt", "w") as f:
+            f.write(f"Summary Table for P={p_value}\n")
+            f.write(f"Budget - Avg Solutions, RMSE (to combined centroid), Delaunay Discrepancy\n")
+            for i, budget in enumerate(budgets):
+                f.write(f"{budget}: {avg_solutions[i]}, {rmse_values[i]}, {delaunay_values[i]}\n")
+
+# Main function to execute everything
 def main():
-    results_dir = '../results/'
+    results_dir = os.getcwd()  # Assuming the script is in the same folder as the results
+    print(f"Current working directory: {results_dir}")
     
-    # Analyze results from the directory
     summary_data = analyze_results(results_dir)
-
-    # Generate graphs based on summary data
     generate_graphs(summary_data)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

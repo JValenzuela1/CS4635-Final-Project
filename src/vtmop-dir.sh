@@ -40,15 +40,17 @@ cd /u/jvalenzuela/final-project/src
 #   done
 # done
 
+# For each objective count
 for p in 2 3 4; do
+    # For each batch count
     for budget in 1000 1500 2000; do
         filename="samples_p${p}_${budget}.f90"
         
-        # Check if the file exists before submitting the job
+        # File-checker catch
         if [ -f "$filename" ]; then
             echo "Running $filename"
             
-            # Compile the Fortran program
+            # Compiles the Fortran program
               gfortran -std=legacy -O2 -fopenmp shared_modules.f90 blas.f lapack.f slatec.f \
               qnstop.f90 sVTdirect.f90 bVTdirect.f90 delsparse.f90 \
               linear_shepard.f90 vtmop.f90 vtmop_func.f90 $filename -o samples_p${p}_${budget}
