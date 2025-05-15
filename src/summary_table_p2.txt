@@ -1,0 +1,5 @@
+Summary Table for P=2
+Budget - Avg Solutions, RMSE (to combined centroid), Delaunay Discrepancy
+1000: 64, 0.0, 0.02949318568178594
+1500: 0, 0, 0
+2000: 0, 0, 0
