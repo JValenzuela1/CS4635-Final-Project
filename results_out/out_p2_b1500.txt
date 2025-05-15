@@ -1,2 +1,0 @@
- The serial installation appears to be correct.
- The full output is contained in the file samples_out.txt     
