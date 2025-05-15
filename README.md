@@ -22,7 +22,7 @@ VTMOP (Vector Trust-region Management for Optimization Problems) is developed by
 
 All VTMOP-related source code in this repository is directly credited to the Parkinson Lab and remains under their original license. No modifications were made to the algorithm itself; rather, the wrapper and analysis scripts were developed externally to facilitate testing and interpretation of results.
 
-For more information about VTMOP, refer to their [GitHub repository](https://github.com/ParkinsonLab/vtmop).
+For more information about VTMOP, refer to their [GitHub repository](https://github.com/vtopt/VTMOP).
 
 ## Purpose
 
