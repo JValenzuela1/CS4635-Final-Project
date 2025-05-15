@@ -18,9 +18,9 @@ This repository contains a small-scale study and implementation of multi-objecti
 
 ## About VTMOP
 
-VTMOP (Vector Trust-region Management for Optimization Problems) is developed by the Parkinson Lab and is designed to solve vector optimization problems using a trust-region method and surrogate models. It supports various surrogate modeling strategies, such as Delaunay-based interpolation, and works with arbitrary multi-objective black-box functions.
+VTMOP is a Fortran 2008 package containing a robust, portable solver and a flexible framework for solving MOPs. Designed for efficiency and scalability to an arbitrary number of objectives, VTMOP attempts to generate uniformly spaced points on a (possibly nonconvex) Pareto front with minimal cost function evaluations. The driver subroutine is VTMOP_SOLVE, which can be run both serially and with parallel function evaluations. Minimal subsets of dependencies such as VTDIRECT, QNSTOP, SHEPPACK, DELAUNAYSPARSE, SLATEC, LAPACK, and BLAS are also provided. Comments at the top of each subroutine document their usage, and examples demonstrating the driver's usage are given in src/sample.f90.
 
-All VTMOP-related source code in this repository is directly credited to the Parkinson Lab and remains under their original license. No modifications were made to the algorithm itself; rather, the wrapper and analysis scripts were developed externally to facilitate testing and interpretation of results.
+All VTMOP-related source code in this repository is directly credited to the Tyler H Chang and remains under their original license. No modifications were made to the algorithm itself; rather, the wrapper and analysis scripts were developed externally to facilitate testing and interpretation of results.
 
 For more information about VTMOP, refer to their [GitHub repository](https://github.com/vtopt/VTMOP).
 
